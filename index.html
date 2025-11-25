@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гонки - Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .game-title {
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+            color: #ffcc00;
+            text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 0 20px;
+        }
+        
+        .info-item {
+            font-size: 18px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 8px 15px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 300px;
+            height: 500px;
+            background-color: #16213e;
+            border: 4px solid #0f3460;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .road {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #2c3e50;
+        }
+        
+        .lane-line {
+            position: absolute;
+            width: 4px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                #ffcc00,
+                #ffcc00 15px,
+                transparent 15px,
+                transparent 30px
+            );
+        }
+        
+        .player-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background-color: #ffcc00;
+            border-radius: 5px;
+            bottom: 20px;
+            z-index: 10;
+            transition: left 0.2s;
+        }
+        
+        .player-car::before {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 15px;
+            background-color: #333;
+            top: 5px;
+            left: 5px;
+            border-radius: 3px;
+        }
+        
+        .player-car::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 10px;
+            background-color: #333;
+            bottom: 5px;
+            left: 5px;
+            border-radius: 3px;
+        }
+        
+        .enemy-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background-color: #e94560;
+            border-radius: 5px;
+            z-index: 5;
+        }
+        
+        .enemy-car::before {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 15px;
+            background-color: #333;
+            top: 5px;
+            left: 5px;
+            border-radius: 3px;
+        }
+        
+        .enemy-car::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 10px;
+            background-color: #333;
+            bottom: 5px;
+            left: 5px;
+            border-radius: 3px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 20px;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background-color: #0f3460;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: background-color 0.2s;
+        }
+        
+        .control-btn:active {
+            background-color: #e94560;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 20;
+        }
+        
+        .screen h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #ffcc00;
+        }
+        
+        .screen p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            background-color: #e94560;
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .btn:hover {
+            background-color: #ff6b81;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .level-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 15;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="game-title">🚗 Гонки 🏁</h1>
+        
+        <div class="game-info">
+            <div class="info-item">Очки: <span id="score">0</span></div>
+            <div class="info-item">Уровень: <span id="level">1</span></div>
+        </div>
+        
+        <div class="game-container">
+            <div class="road">
+                <!-- Линии разделения полос вдоль дороги -->
+                <div class="lane-line" style="left: 33.33%;"></div>
+                <div class="lane-line" style="left: 66.66%;"></div>
+                
+                <div class="player-car" id="player"></div>
+                
+                <div class="level-indicator">Уровень: <span id="current-level">1</span></div>
+            </div>
+            
+            <div class="screen" id="start-screen">
+                <h2>Гонки</h2>
+                <p>Управляйте машиной по трём полосам движения, избегая столкновений с другими автомобилями. Все машины едут на вас!</p>
+                <button class="btn" id="start-btn">Начать игру</button>
+            </div>
+            
+            <div class="screen hidden" id="game-over-screen">
+                <h2>Игра окончена!</h2>
+                <p>Ваш счет: <span id="final-score">0</span></p>
+                <p>Достигнутый уровень: <span id="final-level">1</span></p>
+                <button class="btn" id="restart-btn">Играть снова</button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn" id="left-btn">←</button>
+            <button class="control-btn" id="right-btn">→</button>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+        
+        // Элементы DOM
+        const gameContainer = document.querySelector('.game-container');
+        const playerCar = document.getElementById('player');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const leftBtn = document.getElementById('left-btn');
+        const rightBtn = document.getElementById('right-btn');
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const currentLevelElement = document.getElementById('current-level');
+        const finalScoreElement = document.getElementById('final-score');
+        const finalLevelElement = document.getElementById('final-level');
+        
+        // Игровые переменные
+        let gameActive = false;
+        let score = 0;
+        let level = 1;
+        let playerPosition = 1; // 0: левая полоса, 1: центральная, 2: правая
+        let enemyCars = [];
+        let gameSpeed = 3;
+        let spawnRate = 100;
+        let frameCount = 0;
+        let animationId;
+        
+        // Позиции полос
+        const lanePositions = [50, 130, 210];
+        
+        // Управление с клавиатуры
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            
+            if (e.key === 'ArrowLeft' && playerPosition > 0) {
+                playerPosition--;
+                updatePlayerPosition();
+            } else if (e.key === 'ArrowRight' && playerPosition < 2) {
+                playerPosition++;
+                updatePlayerPosition();
+            }
+        });
+        
+        // Управление с кнопок
+        leftBtn.addEventListener('click', () => {
+            if (!gameActive) return;
+            
+            if (playerPosition > 0) {
+                playerPosition--;
+                updatePlayerPosition();
+            }
+        });
+        
+        rightBtn.addEventListener('click', () => {
+            if (!gameActive) return;
+            
+            if (playerPosition < 2) {
+                playerPosition++;
+                updatePlayerPosition();
+            }
+        });
+        
+        // Управление касанием для мобильных устройств
+        gameContainer.addEventListener('touchstart', (e) => {
+            if (!gameActive) return;
+            
+            const touchX = e.touches[0].clientX;
+            const containerRect = gameContainer.getBoundingClientRect();
+            const containerCenter = containerRect.left + containerRect.width / 2;
+            
+            if (touchX < containerCenter && playerPosition > 0) {
+                playerPosition--;
+                updatePlayerPosition();
+            } else if (touchX > containerCenter && playerPosition < 2) {
+                playerPosition++;
+                updatePlayerPosition();
+            }
+        });
+        
+        // Обновление позиции игрока
+        function updatePlayerPosition() {
+            playerCar.style.left = `${lanePositions[playerPosition]}px`;
+        }
+        
+        // Создание вражеской машины
+        function createEnemyCar() {
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy-car';
+            
+            // Случайная полоса (0, 1, 2)
+            const lane = Math.floor(Math.random() * 3);
+            enemy.style.left = `${lanePositions[lane]}px`;
+            enemy.style.top = '-70px';
+            
+            gameContainer.appendChild(enemy);
+            enemyCars.push({
+                element: enemy,
+                lane: lane,
+                y: -70
+            });
+        }
+        
+        // Обновление игры
+        function updateGame() {
+            if (!gameActive) return;
+            
+            frameCount++;
+            
+            // Увеличение сложности со временем
+            if (frameCount % 600 === 0) {
+                level++;
+                levelElement.textContent = level;
+                currentLevelElement.textContent = level;
+                
+                // Увеличение скорости и частоты появления врагов
+                gameSpeed = 3 + level * 0.7;
+                spawnRate = Math.max(30, 100 - level * 8);
+            }
+            
+            // Создание новых врагов
+            if (frameCount % spawnRate === 0) {
+                createEnemyCar();
+                
+                // На высоких уровнях иногда создаем двух врагов одновременно
+                if (level > 3 && Math.random() < 0.4) {
+                    setTimeout(() => createEnemyCar(), 150);
+                }
+                
+                // На очень высоких уровнях - трёх врагов
+                if (level > 6 && Math.random() < 0.2) {
+                    setTimeout(() => createEnemyCar(), 300);
+                }
+            }
+            
+            // Обновление позиций врагов
+            for (let i = enemyCars.length - 1; i >= 0; i--) {
+                const enemy = enemyCars[i];
+                enemy.y += gameSpeed;
+                enemy.element.style.top = `${enemy.y}px`;
+                
+                // Проверка столкновения
+                if (enemy.lane === playerPosition && enemy.y > 430 && enemy.y < 500) {
+                    gameOver();
+                    return;
+                }
+                
+                // Удаление врагов, уехавших за экран
+                if (enemy.y > 500) {
+                    gameContainer.removeChild(enemy.element);
+                    enemyCars.splice(i, 1);
+                    score += 10;
+                    scoreElement.textContent = score;
+                }
+            }
+            
+            animationId = requestAnimationFrame(updateGame);
+        }
+        
+        // Начало игры
+        function startGame() {
+            gameActive = true;
+            score = 0;
+            level = 1;
+            playerPosition = 1;
+            enemyCars = [];
+            gameSpeed = 3;
+            spawnRate = 100;
+            frameCount = 0;
+            
+            scoreElement.textContent = score;
+            levelElement.textContent = level;
+            currentLevelElement.textContent = level;
+            
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            updatePlayerPosition();
+            
+            // Очистка врагов
+            document.querySelectorAll('.enemy-car').forEach(car => car.remove());
+            
+            animationId = requestAnimationFrame(updateGame);
+        }
+        
+        // Конец игры
+        function gameOver() {
+            gameActive = false;
+            cancelAnimationFrame(animationId);
+            
+            finalScoreElement.textContent = score;
+            finalLevelElement.textContent = level;
+            gameOverScreen.classList.remove('hidden');
+        }
+        
+        // Обработчики кнопок
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        
+        // Инициализация игры
+        updatePlayerPosition();
+    </script>
+</body>
+</html>

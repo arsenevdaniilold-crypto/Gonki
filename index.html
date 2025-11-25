@@ -2,10 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Гонки - Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
         body {
             margin: 0;
             padding: 0;
@@ -18,6 +27,7 @@
             justify-content: center;
             min-height: 100vh;
             overflow: hidden;
+            touch-action: manipulation;
         }
         
         .container {
@@ -61,6 +71,7 @@
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            touch-action: none;
         }
         
         .road {
@@ -168,6 +179,7 @@
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: background-color 0.2s;
+            touch-action: manipulation;
         }
         
         .control-btn:active {
@@ -210,6 +222,7 @@
             font-size: 18px;
             cursor: pointer;
             transition: background-color 0.3s;
+            touch-action: manipulation;
         }
         
         .btn:hover {
@@ -299,13 +312,18 @@
         let level = 1;
         let playerPosition = 1; // 0: левая полоса, 1: центральная, 2: правая
         let enemyCars = [];
-        let gameSpeed = 3;
-        let spawnRate = 100;
+        let gameSpeed = 5; // Увеличена базовая скорость
+        let spawnRate = 80; // Уменьшено время между появлениями
         let frameCount = 0;
         let animationId;
+        let lastTime = 0;
+        let deltaTime = 0;
         
         // Позиции полос
         const lanePositions = [50, 130, 210];
+        
+        // Определение устройства (мобильное или ПК)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         // Управление с клавиатуры
         document.addEventListener('keydown', (e) => {
@@ -339,18 +357,53 @@
             }
         });
         
-        // Управление касанием для мобильных устройств
+        // Улучшенное управление касанием для мобильных устройств
+        let touchStartX = 0;
+        
         gameContainer.addEventListener('touchstart', (e) => {
             if (!gameActive) return;
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+        });
+        
+        gameContainer.addEventListener('touchmove', (e) => {
+            if (!gameActive) return;
+            e.preventDefault();
+        });
+        
+        gameContainer.addEventListener('touchend', (e) => {
+            if (!gameActive) return;
+            e.preventDefault();
             
-            const touchX = e.touches[0].clientX;
+            const touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            // Определяем направление свайпа
+            if (Math.abs(swipeDistance) > 30) { // Минимальное расстояние свайпа
+                if (swipeDistance > 0 && playerPosition < 2) {
+                    // Свайп вправо
+                    playerPosition++;
+                    updatePlayerPosition();
+                } else if (swipeDistance < 0 && playerPosition > 0) {
+                    // Свайп влево
+                    playerPosition--;
+                    updatePlayerPosition();
+                }
+            }
+        });
+        
+        // Управление кликом по игровому полю (для ПК и мобильных)
+        gameContainer.addEventListener('click', (e) => {
+            if (!gameActive) return;
+            
+            const clickX = e.clientX;
             const containerRect = gameContainer.getBoundingClientRect();
             const containerCenter = containerRect.left + containerRect.width / 2;
             
-            if (touchX < containerCenter && playerPosition > 0) {
+            if (clickX < containerCenter && playerPosition > 0) {
                 playerPosition--;
                 updatePlayerPosition();
-            } else if (touchX > containerCenter && playerPosition < 2) {
+            } else if (clickX > containerCenter && playerPosition < 2) {
                 playerPosition++;
                 updatePlayerPosition();
             }
@@ -379,9 +432,16 @@
             });
         }
         
-        // Обновление игры
-        function updateGame() {
+        // Обновление игры с delta time для одинаковой скорости на всех устройствах
+        function updateGame(timestamp) {
             if (!gameActive) return;
+            
+            if (!lastTime) lastTime = timestamp;
+            deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            // Корректировка скорости на основе deltaTime
+            const speedMultiplier = deltaTime / 16.67; // Нормализация к 60 FPS
             
             frameCount++;
             
@@ -392,12 +452,12 @@
                 currentLevelElement.textContent = level;
                 
                 // Увеличение скорости и частоты появления врагов
-                gameSpeed = 3 + level * 0.7;
-                spawnRate = Math.max(30, 100 - level * 8);
+                gameSpeed = 5 + level * 0.7;
+                spawnRate = Math.max(25, 80 - level * 6);
             }
             
             // Создание новых врагов
-            if (frameCount % spawnRate === 0) {
+            if (frameCount % Math.floor(spawnRate / speedMultiplier) === 0) {
                 createEnemyCar();
                 
                 // На высоких уровнях иногда создаем двух врагов одновременно
@@ -411,10 +471,10 @@
                 }
             }
             
-            // Обновление позиций врагов
+            // Обновление позиций врагов с учетом deltaTime
             for (let i = enemyCars.length - 1; i >= 0; i--) {
                 const enemy = enemyCars[i];
-                enemy.y += gameSpeed;
+                enemy.y += gameSpeed * speedMultiplier;
                 enemy.element.style.top = `${enemy.y}px`;
                 
                 // Проверка столкновения
@@ -442,9 +502,10 @@
             level = 1;
             playerPosition = 1;
             enemyCars = [];
-            gameSpeed = 3;
-            spawnRate = 100;
+            gameSpeed = 5;
+            spawnRate = 80;
             frameCount = 0;
+            lastTime = 0;
             
             scoreElement.textContent = score;
             levelElement.textContent = level;
@@ -474,6 +535,17 @@
         // Обработчики кнопок
         startBtn.addEventListener('click', startGame);
         restartBtn.addEventListener('click', startGame);
+        
+        // Предотвращение масштабирования при двойном тапе
+        document.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+        });
+        
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
         
         // Инициализация игры
         updatePlayerPosition();
